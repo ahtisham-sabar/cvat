@@ -4,8 +4,8 @@
 
 ## Start and environment
 
-- Acknowledged (timer start): **[FILL: date and time, PKT]**. Deadline: **[FILL: start + 8h]**.
-- Work on the feature started about 3 hours after acknowledging. This plan is sized to the ~5 hours left.
+- Acknowledged (timer start): **21 Nov 2026, 20:00 PKT**. Deadline: **22 Nov 2026, 04:00 PKT**.
+- I started the actual work late: this plan was committed at 23:19, 3 h 19 min after acknowledging. The plan is sized to the ~4 h 40 min that were left.
 - Environment setup (fork, Docker images, COCO import) was done before acknowledging, as Section 2 of the brief says that waiting time does not count.
 - Machine: MacBook Pro 16" 2019, 2.6 GHz 6-core Intel Core i7, 16 GB RAM, macOS Tahoe 26.5.2. Docker Desktop with 8 CPUs, ~7.6 GiB memory.
 - CVAT commit: `d4d08dedb5ad7c5e980c0bc7319a7f5587365dad` (fork default branch `develop`; work on `dev-test01`).
@@ -25,7 +25,7 @@
 | 8 | Finish the three documents with evidence, push, PR inside my fork | 10 | 30 min |
 | 9 | Loom recording (under 5 minutes) and submission email | — | 30 min |
 
-Hard stop for feature work: **4 hours after this plan is committed**. Whatever state the code is in, the remaining time goes to documents, PR and recording.
+Hard stop for feature work: **4 hours after this plan is committed** (03:19 PKT). Whatever state the code is in, the remaining time goes to documents, PR and recording.
 
 ## Decided up front not to do
 
@@ -37,7 +37,7 @@ Hard stop for feature work: **4 hours after this plan is committed**. Whatever s
 - **Expected total changed from 3541 to 3953 (after commit `98a4601ce`).** The endpoint returned 3953, not the 3541 COCO annotations. CVAT's COCO import stores each part of a multi-part COCO polygon as its own `LabeledShape`. Counting polygon parts in `instances_subset.json` gives exactly 3953, and every one of the 80 labels matches the endpoint (0 differences). The endpoint counts what CVAT stores (shapes), so the DoD check now compares against polygon parts.
 - **Step 2 and 3 landed in one commit** (`98a4601ce`): the permission check is three lines in the same view, and the endpoint should never exist without it.
 - **Measurement uses a token, not basic auth.** Basic auth runs Django's password hasher on every request, which would dominate the time and say nothing about this endpoint. Recorded in `OBJECTIVES.md`.
-- **Item 7 not done.** After steps 2–7 there was not enough time left to add a filter end to end and still finish the documents and the recording properly.
+- **Item 7 done after all.** After the documents were drafted there was still time, so I added grouping by annotation type (API `by_type` per label, and a Total / By annotation type toggle with a stacked chart). Why this grouping: in COCO, normal objects are polygons but crowd regions are masks, and one crowd mask covers many objects. Splitting the count by type shows how much of a label is individual objects and how much is crowd masks, which matters when the data is used for training. In other tasks it also shows a label annotated inconsistently (some boxes, some polygons). Check on Task #1: 3916 polygons + 37 masks = 3953, and 37 equals the number of `iscrowd=1` annotations in `instances_subset.json`.
 
 ## Decision record (brief item 10)
 

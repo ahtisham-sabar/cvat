@@ -23,13 +23,24 @@ Same codes as CVAT's own `GET /api/tasks/1` (checked first: 200 / 403 / 401).
 
 - [x] Request without login is refused with 401. Evidence: `curl ... /api/test/tasks/1/annotation-counts` → `401`
 - [x] Logged-in user without access to the task (`outsider`) is refused with 403. Evidence: `curl -u 'outsider:***' ...` → `403`
-- [x] Owner gets 200. Evidence: `curl -u 'admin:***' ...` → JSON above
+- [x] Owner gets 200. Evidence: `curl -u 'admin:***' ...` → 200 with the JSON above
 
 ## Objective (brief item 6)
 
 - [x] Objective MO-1 has a target. Evidence: `docs/OBJECTIVES.md` (median ≤ 200 ms)
-- [x] MO-1 measured 5 times on my machine, raw output pasted, median and spread reported. Evidence: `docs/OBJECTIVES.md`, median 63.1 ms, spread 45.2–70.1 ms
-- [x] Target met. Evidence: 63.1 ms ≤ 200 ms
+- [x] MO-1 measured 5 times on my machine, raw output pasted, median and spread reported. Evidence: `docs/OBJECTIVES.md`, run 2 (current code): median 54.6 ms, spread 44.9–69.1 ms; run 1 (before grouping): median 63.1 ms
+- [x] Target met. Evidence: 54.6 ms ≤ 200 ms
+
+## Grouping (brief item 7)
+
+- [x] Counts can be grouped by annotation type, with the reason written down. Evidence: API returns `by_type` per label and `types` for the task; page has a Total / By annotation type toggle with a stacked chart, screenshot "Grouped by type" in the PR description. Reason: `PLAN.md`, "Changes to this plan"
+- [x] Grouped numbers add up and match the source. Evidence:
+  ```
+  total 3953
+  types ['mask', 'polygon']
+  {'mask': 37, 'polygon': 3916}
+  crowd (iscrowd=1): 37
+  ```
 
 ## Presentation
 
@@ -40,6 +51,5 @@ Same codes as CVAT's own `GET /api/tasks/1` (checked first: 200 / 403 / 401).
 
 ## Not finished, and why
 
-- **Item 7 (filter or grouping):** not started. Not enough time left after items 1–6 to build it end to end and still finish the documents and recording.
 - **Items 8–9 (WebSocket):** skipped on purpose, see `PLAN.md` ("Decided up front not to do" and decision 4).
 - **Automated tests:** none added for the endpoint. Verified by hand with curl and the COCO comparison above.
