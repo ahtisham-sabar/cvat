@@ -34,8 +34,27 @@ Hard stop for feature work: **4 hours after this plan is committed**. Whatever s
 
 ## Changes to this plan
 
-_Timestamped notes added here during the work._
+- **Expected total changed from 3541 to 3953 (after commit `98a4601ce`).** The endpoint returned 3953, not the 3541 COCO annotations. CVAT's COCO import stores each part of a multi-part COCO polygon as its own `LabeledShape`. Counting polygon parts in `instances_subset.json` gives exactly 3953, and every one of the 80 labels matches the endpoint (0 differences). The endpoint counts what CVAT stores (shapes), so the DoD check now compares against polygon parts.
+- **Step 2 and 3 landed in one commit** (`98a4601ce`): the permission check is three lines in the same view, and the endpoint should never exist without it.
+- **Measurement uses a token, not basic auth.** Basic auth runs Django's password hasher on every request, which would dominate the time and say nothing about this endpoint. Recorded in `OBJECTIVES.md`.
+- **Item 7 not done.** After steps 2–7 there was not enough time left to add a filter end to end and still finish the documents and the recording properly.
 
-## Decision record
+## Decision record (brief item 10)
 
-_Filled in at the end (brief item 10)._
+**1. Count in the database, not through CVAT's annotation loader.**
+Taken: three `GROUP BY label` queries (`LabeledShape`, `LabeledTrack`, `LabeledImage`) in `count_annotations_per_label`, `cvat/apps/test/views.py`.
+Rejected: loading task annotations through CVAT's dataset manager (what `GET /api/tasks/{id}/annotations` uses) and counting in Python.
+Cost of rejecting it: my query has its own definition of "an annotation" (annotation jobs only, no skeleton sub-points, a track counts once). If CVAT adds a new annotation kind or changes these rules, this endpoint will not follow automatically.
+
+**2. Explicit `TaskPermission` check instead of CVAT's viewset permission pattern.**
+Taken: a plain DRF `APIView` with `IsAuthenticated` (401) and `TaskPermission` with scope `view:annotations` (403), the same scope CVAT uses for reading a task's annotations.
+Rejected: a `ViewSet` with `iam_permission_class` going through CVAT's `PolicyEnforcer`, plus a new OPA scope and Rego rule.
+Cost of rejecting it: the access-token plugin checks that `PolicyEnforcer` runs (`cvat/apps/access_tokens/permissions.py`) are not applied to this endpoint, so a restricted access token is checked only by the task permission, not by its own token rules.
+
+**3. Count shapes, not objects.**
+Taken: one count per stored shape (3953 for Task #1).
+Rejected: merging the parts of one object (shapes sharing a `group`) into one count (3541).
+Cost of rejecting it: the number differs from what someone reading the COCO file expects, so it needs the explanation above.
+
+**4. No WebSocket (items 8–9).** Reasons above under "Decided up front not to do".
+Cost: the graph only updates on page load or Retry.
