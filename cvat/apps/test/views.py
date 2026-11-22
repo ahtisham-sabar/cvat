@@ -9,25 +9,36 @@ from cvat.apps.engine.models import JobType, LabeledImage, LabeledShape, Labeled
 from cvat.apps.engine.permissions import TaskPermission
 
 
-def count_annotations_per_label(task_id: int) -> dict[int, int]:
-    """Counts shapes, tracks and tags per label in the database, one GROUP BY query each.
+def _count_by_label(queryset, *fields):
+    return queryset.order_by().values_list("label_id", *fields).annotate(count=Count("id"))
 
-    Only annotation jobs are counted: ground truth and consensus replica jobs repeat
-    frames that already belong to annotation jobs. Skeleton points (parent is set)
-    are part of their skeleton and are not counted separately.
+
+def count_annotations_per_label(task_id: int) -> dict[int, dict[str, int]]:
+    """Counts annotations per label and type in the database, one GROUP BY query per model.
+
+    Shapes are split by shape type (polygon, rectangle, mask, ...); tracks and tags are
+    reported as "track" and "tag". Only annotation jobs are counted: ground truth and
+    consensus replica jobs repeat frames that already belong to annotation jobs. Skeleton
+    points (parent is set) are part of their skeleton and are not counted separately.
     """
     in_task = {"job__segment__task_id": task_id, "job__type": JobType.ANNOTATION}
-    querysets = [
-        LabeledShape.objects.filter(**in_task, parent__isnull=True),
-        LabeledTrack.objects.filter(**in_task, parent__isnull=True),
-        LabeledImage.objects.filter(**in_task),
-    ]
+    counts: dict[int, dict[str, int]] = {}
 
-    counts: dict[int, int] = {}
-    for queryset in querysets:
-        rows = queryset.order_by().values_list("label_id").annotate(count=Count("id"))
-        for label_id, count in rows:
-            counts[label_id] = counts.get(label_id, 0) + count
+    def add(label_id: int, annotation_type: str, count: int) -> None:
+        by_type = counts.setdefault(label_id, {})
+        by_type[annotation_type] = by_type.get(annotation_type, 0) + count
+
+    shapes = LabeledShape.objects.filter(**in_task, parent__isnull=True)
+    for label_id, shape_type, count in _count_by_label(shapes, "type"):
+        add(label_id, shape_type, count)
+
+    tracks = LabeledTrack.objects.filter(**in_task, parent__isnull=True)
+    for label_id, count in _count_by_label(tracks):
+        add(label_id, "track", count)
+
+    for label_id, count in _count_by_label(LabeledImage.objects.filter(**in_task)):
+        add(label_id, "tag", count)
+
     return counts
 
 
@@ -44,16 +55,24 @@ class TaskAnnotationCountsView(APIView):
             raise PermissionDenied()
 
         counts = count_annotations_per_label(task.id)
-        labels = [
-            {"id": label.id, "name": label.name, "count": counts.get(label.id, 0)}
-            for label in task.get_labels()
-        ]
+        labels = []
+        for label in task.get_labels():
+            by_type = counts.get(label.id, {})
+            labels.append(
+                {
+                    "id": label.id,
+                    "name": label.name,
+                    "count": sum(by_type.values()),
+                    "by_type": by_type,
+                }
+            )
         labels.sort(key=lambda label: (-label["count"], label["name"]))
 
         return Response(
             {
                 "task_id": task.id,
                 "total": sum(label["count"] for label in labels),
+                "types": sorted({t for label in labels for t in label["by_type"]}),
                 "labels": labels,
             }
         )
