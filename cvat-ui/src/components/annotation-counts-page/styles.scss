@@ -12,3 +12,9 @@
     border-radius: $grid-unit-size;
     padding: $grid-unit-size * 2;
 }
+
+.cvat-annotation-counts-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
